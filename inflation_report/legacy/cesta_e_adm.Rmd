@@ -1,0 +1,204 @@
+---
+title: "IPCA - Cesta Básica e Administrados"
+author: "Observatorio da Inflação PUC-PR"
+date: "01/04/2023"
+output: html_document
+fig_width: 6 
+fig_height: 4 
+---
+
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sidrar)
+library(openxlsx)
+library(lubridate)
+library(kableExtra)
+library(plotly)
+```
+
+
+````{r, echo = FALSE}
+
+ipcacity<- get_sidra(7060,
+                  geo = "MetroRegion",
+                  period = "202302")
+
+
+````
+
+
+### IPCA Cesta Básica
+
+
+````{r, echo = FALSE}
+
+
+
+
+cesta <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("1101002.Arroz",
+                                                         "1101073.Feijão - carioca (rajado)",
+                                                         '1114022.Café moído',
+                                                         '1104003.Açúcar refinado',
+                                                         '1103028.Tomate',
+                                                         '1113040.Margarina',
+                                                         '1106008.Banana - prata',
+                                                         '1107084.Contrafilé',
+                                                         '1102023.Farinha de mandioca',
+                                                         '1113013.Óleo de soja',
+                                                         '1103003.Batata-inglesa',
+                                                         '1112015.Pão francês',
+                                                         '1111004.Leite longa vida')) %>%
+  dplyr::select(`Região Metropolitana`, `Variável`, Valor, Mês,`Geral, grupo, subgrupo, item e subitem`) %>%
+  spread(Variável, Valor) %>%
+  mutate(`IPCA Mensal` = ((`IPCA - Variação mensal`/100) +1) * `IPCA - Peso mensal`,
+          `IPCA Ano` = ((`IPCA - Variação acumulada no ano`/100) +1) * `IPCA - Peso mensal`,
+         `IPCA 12 Meses` = ((`IPCA - Variação acumulada em 12 meses`/100) +1) * `IPCA - Peso mensal`) %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  mutate(`soma peso` = sum(`IPCA - Peso mensal`, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  summarise(`IPCA - Variação mensal` = round(((sum(`IPCA Mensal`, na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada no ano`  =  round(((sum(`IPCA Ano` , na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada em 12 meses` =  round(((sum(`IPCA 12 Meses`, na.rm = TRUE)/`soma peso`)-1)*100,2)) %>%
+  distinct()
+
+kable(cesta)
+
+``````
+
+
+#### IPCA Cesta Básica - Gráfico
+
+````{r, echo = FALSE}
+
+
+# Gráfico cesta
+
+grafico <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("1101002.Arroz",
+                                                         "1101052.Feijão - preto",
+                                                         '1114022.Café moído',
+                                                         '1104003.Açúcar refinado',
+                                                         '1103028.Tomate',
+                                                         '1113040.Margarina',
+                                                         '1106008.Banana - prata',
+                                                         '1107084.Contrafilé',
+                                                         '1102012.Farinha de trigo',
+                                                         '1113013.Óleo de soja',
+                                                         '1103003.Batata-inglesa',
+                                                         '1112015.Pão francês',
+                                                         '1111004.Leite longa vida'),
+         `Região Metropolitana` == 'Curitiba - PR', Variável == 'IPCA - Variação acumulada em 12 meses',
+         Mês == 'fevereiro 2023') %>%
+  mutate(`Geral, grupo, subgrupo, item e subitem` = gsub('[0-9]+', '',`Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = gsub("[.]","", `Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = reorder(`Geral, grupo, subgrupo, item e subitem`, Valor)) 
+
+
+
+
+x <- ggplot(grafico, aes(x = Valor, y = `Geral, grupo, subgrupo, item e subitem`)) +
+  geom_col(aes(fill = -Valor)) +
+  labs(y = "", x = "Variação Acumulada em 12 meses") +
+  geom_text(aes(label=paste(round(Valor,0),"%", sep = "")), hjust = -0.5, size = 4,
+            position = position_dodge(width = 1))+
+  ggtitle("IPCA - Cesta Básica Curitiba") +
+  scale_fill_gradient2(high = "dark blue", low = "indian red") +
+  theme_minimal() +
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none")
+
+
+ggplotly(x)
+
+
+````
+
+
+### IPCA Administrados
+
+````{r, echo = FALSE}
+
+#### Administrados
+
+
+administrados <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("2101004.Taxa de água e esgoto",
+                                                         "2201004.Gás de botijão",
+                                                         '2202003.Energia elétrica residencial',
+                                                         '5102004.Emplacamento e licença',
+                                                         '5101001.Ônibus urbano',
+                                                         '5104001.Gasolina',
+                                                         '6203001.Plano de saúde',
+                                                         '6101.Produtos farmacêuticos',
+                                                         '5101002.Táxi')) %>%
+  dplyr::select(`Região Metropolitana`, `Variável`, Valor, Mês,`Geral, grupo, subgrupo, item e subitem`) %>%
+  spread(Variável, Valor) %>%
+  mutate(`IPCA Mensal` = ((`IPCA - Variação mensal`/100) +1) * `IPCA - Peso mensal`,
+         `IPCA Ano` = ((`IPCA - Variação acumulada no ano`/100) +1) * `IPCA - Peso mensal`,
+         `IPCA 12 Meses` = ((`IPCA - Variação acumulada em 12 meses`/100) +1) * `IPCA - Peso mensal`) %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  mutate(`soma peso` = sum(`IPCA - Peso mensal`, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  summarise(`IPCA - Variação mensal` = round(((sum(`IPCA Mensal`, na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada no ano`  =  round(((sum(`IPCA Ano` , na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada em 12 meses` =  round(((sum(`IPCA 12 Meses`, na.rm = TRUE)/`soma peso`)-1)*100,2)) %>%
+  distinct()
+
+
+
+kable(administrados)
+
+
+````
+
+
+#### IPCA Administrados - Gráfico
+
+````{r, echo = FALSE}
+
+grafico_adm <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("2101004.Taxa de água e esgoto",
+                                                         "2201004.Gás de botijão",
+                                                         '2202003.Energia elétrica residencial',
+                                                         '5102004.Emplacamento e licença',
+                                                         '5101001.Ônibus urbano',
+                                                         '5104001.Gasolina',
+                                                         '6203001.Plano de saúde',
+                                                         '6101.Produtos farmacêuticos',
+                                                         '5101002.Táxi'),
+         `Região Metropolitana` == 'Curitiba - PR', Variável == 'IPCA - Variação acumulada em 12 meses',
+         Mês == 'fevereiro 2023') %>%
+  mutate(`Geral, grupo, subgrupo, item e subitem` = gsub('[0-9]+', '',`Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = gsub("[.]","", `Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = reorder(`Geral, grupo, subgrupo, item e subitem`, Valor)) 
+
+
+
+
+y <- ggplot(grafico_adm, aes(x = Valor, y = `Geral, grupo, subgrupo, item e subitem`)) +
+  geom_col(aes(fill = -Valor)) +
+  labs(y = "", x = "Variação Acumulada em 12 meses") +
+  geom_text(aes(label=paste(round(Valor,0),"%", sep = "")), hjust = -0.5, size = 4,
+            position = position_dodge(width = 1))+
+  ggtitle("IPCA - Preços Administrados ") +
+  scale_fill_gradient2(high = "dark blue", low = "indian red") +
+  theme_minimal() +
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none")
+
+
+ggplotly(y)
+
+
+
+````
+
+

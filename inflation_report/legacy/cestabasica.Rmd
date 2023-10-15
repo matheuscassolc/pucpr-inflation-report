@@ -1,0 +1,102 @@
+---
+title: "cesta_basica"
+author: "Observatorio da Inflação: Economia PUCPR"
+date: "13/04/2022"
+output: html_document
+---
+
+# Boletim da Cesta Básica 
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(sidrar)
+library(openxlsx)
+library(lubridate)
+library(kableExtra)
+
+ipcacity<- get_sidra(7060,
+                  geo = "MetroRegion",
+                  period = c("202301-202302"))
+```
+
+## Cesta Básica acelera em março e sobe 5,96% em Curitiba  
+
+O Índice da Cesta Básica de Curitiba, é calculado com base nos treze produtos de alimentação definidos pelo Decreto Lei n° 399, de 30 de abril de 1938, que regulamentou o salário mínimo no Brasil, e que continua em vigência. Para o cálculo desse indicador, foram utilizados como base de ponderação, as despesas de consumo das famílias residentes nas áreas urbanas, com rendimentos entre 1 (um) e 40 (quarenta) salários mínimos, qualquer que seja a fonte de rendimentos, obtidos a partir da Pesquisa de Orçamentos Familiares do IBGE de 2017-2018. Em Curitiba, o Índice da Cesta Básica registrou alta de 5,96% em março e acelerou bastante em relação a fevereiro (2,12%). A Cesta Básica Brasil, também acelerou em março (5,27%). Em fevereiro havia apresentado alta de 2,02%. Nesse primeiro trimestre do ano, a Cesta Básica subiu 10,28% em Curitiba, contra 10,34% da média nacional. Comparativamente aos índices de inflação, nos últimos doze meses, o IPCA Curitiba subiu 14,37%, contra 20,48% da Cesta Básica Curitiba e o IPCA Nacional 11,30%, contra 21,46% da Cesta Básica Brasil. Na tabela 1 e nos gráficos de 1, 2 e 3, pode-se visualizar as variações percentuais mensais e acumuladas de preços dos produtos e os resultados dos Índices da Cesta Básica de Curitiba e Brasil e do IPCA Curitiba e Brasil. 
+
+```{r}
+
+
+cesta <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("1101002.Arroz",
+                                                         "1101073.Feijão - carioca (rajado)",
+                                                         '1114022.Café moído',
+                                                         '1104003.Açúcar refinado',
+                                                         '1103028.Tomate',
+                                                         '1113040.Margarina',
+                                                         '1106008.Banana - prata',
+                                                         '1107084.Contrafilé',
+                                                         '1102023.Farinha de mandioca',
+                                                         '1113013.Óleo de soja',
+                                                         '1103003.Batata-inglesa',
+                                                         '1112015.Pão francês',
+                                                         '1111004.Leite longa vida')) %>%
+  dplyr::select(`Região Metropolitana`, `Variável`, Valor, Mês,`Geral, grupo, subgrupo, item e subitem`) %>%
+  spread(Variável, Valor) %>%
+  mutate(`IPCA Mensal` = ((`IPCA - Variação mensal`/100) +1) * `IPCA - Peso mensal`,
+          `IPCA Ano` = ((`IPCA - Variação acumulada no ano`/100) +1) * `IPCA - Peso mensal`,
+         `IPCA 12 Meses` = ((`IPCA - Variação acumulada em 12 meses`/100) +1) * `IPCA - Peso mensal`) %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  mutate(`soma peso` = sum(`IPCA - Peso mensal`, na.rm = TRUE)) %>%
+  ungroup() %>%
+  group_by(`Região Metropolitana`, Mês) %>%
+  summarise(`IPCA - Variação mensal` = round(((sum(`IPCA Mensal`, na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada no ano`  =  round(((sum(`IPCA Ano` , na.rm = TRUE)/`soma peso`)-1)*100,2),
+            `IPCA - Variação acumulada em 12 meses` =  round(((sum(`IPCA 12 Meses`, na.rm = TRUE)/`soma peso`)-1)*100,2)) %>%
+  distinct()
+
+kable(cesta)
+
+```
+
+## Grafico SP
+
+
+```{r, echo=FALSE}
+grafico <- ipcacity %>%
+  filter(`Geral, grupo, subgrupo, item e subitem` %in% c("1101002.Arroz",
+                                                         "1101073.Feijão - carioca (rajado)",
+                                                         '1114022.Café moído',
+                                                         '1104003.Açúcar refinado',
+                                                         '1103028.Tomate',
+                                                         '1113040.Margarina',
+                                                         '1106008.Banana - prata',
+                                                         '1107084.Contrafilé',
+                                                         '1102023.Farinha de mandioca',
+                                                         '1113013.Óleo de soja',
+                                                         '1103003.Batata-inglesa',
+                                                         '1112015.Pão francês',
+                                                         '1111004.Leite longa vida'),
+         `Região Metropolitana` == 'São Paulo - SP', Variável == 'IPCA - Variação acumulada em 12 meses',
+         Mês == 'fevereiro 2023') %>%
+  mutate(`Geral, grupo, subgrupo, item e subitem` = gsub('[0-9]+', '',`Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = gsub("[.]","", `Geral, grupo, subgrupo, item e subitem`),
+         `Geral, grupo, subgrupo, item e subitem` = reorder(`Geral, grupo, subgrupo, item e subitem`, Valor)) 
+
+
+
+
+ggplot(grafico, aes(x = Valor, y = `Geral, grupo, subgrupo, item e subitem`)) +
+  geom_col(aes(fill = -Valor)) +
+  labs(y = "", x = "Variação Acumulada em 12 meses") +
+  geom_text(aes(label=paste(round(Valor,0),"%", sep = "")), hjust = -0.5, size = 4,
+            position = position_dodge(width = 1))+
+  ggtitle("IPCA - Cesta Básica SP") +
+  scale_fill_gradient2(high = "dark blue", low = "indian red") +
+  theme_minimal() +
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none")
+
+```
+
